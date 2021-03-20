@@ -1,16 +1,67 @@
 // Testing Middleware
 
-// 💣 remove this todo test (it's only here so you don't get an error about missing tests)
-test.todo('remove me')
-
 // 🐨 you'll need both of these:
-// import {UnauthorizedError} from 'express-jwt'
-// import errorMiddleware from '../error-middleware'
+import {UnauthorizedError} from 'express-jwt'
+import errorMiddleware from '../error-middleware'
 
-// 🐨 Write a test for the UnauthorizedError case
-// 💰 const error = new UnauthorizedError('some_error_code', {message: 'Some message'})
-// 💰 const res = {json: jest.fn(() => res), status: jest.fn(() => res)}
+describe('errorMiddleware', () => {
+  const message = 'Some message'
 
-// 🐨 Write a test for the headersSent case
+  // 🐨 Write a test for the UnauthorizedError case
+  test('responds with 401 for jwt UnauthorizedError', () => {
+    const error = new UnauthorizedError('some_error_code', {message})
+    const res = {json: jest.fn(() => res), status: jest.fn(() => res)}
+    const req = null
+    const next = jest.fn()
 
-// 🐨 Write a test for the else case (responds with a 500)
+    errorMiddleware(error, req, res, next)
+    expect(next).not.toHaveBeenCalled()
+    expect(res.status).toHaveBeenCalledWith(401)
+    expect(res.status).toHaveBeenCalledTimes(1)
+    expect(res.json).toHaveBeenCalledWith({
+      code: error.code,
+      message: error.message,
+    })
+    expect(res.json).toHaveBeenCalledTimes(1)
+  })
+
+  // 🐨 Write a test for the headersSent case
+  test('call next if headerSent is true', () => {
+    const error = new Error(message)
+    const res = {
+      json: jest.fn(() => res),
+      status: jest.fn(() => res),
+      headersSent: true,
+    }
+    const req = null
+    const next = jest.fn()
+
+    errorMiddleware(error, req, res, next)
+
+    expect(next).toHaveBeenCalledWith(error)
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(res.status).not.toHaveBeenCalled()
+    expect(res.json).not.toHaveBeenCalled()
+
+    next.mockReset()
+
+    errorMiddleware(error, req, {...res, headersSent: false}, next)
+    expect(next).not.toHaveBeenCalled()
+  })
+
+  // 🐨 Write a test for the else case (responds with a 500)
+  test('Responds with 500 and the error object', () => {
+    const error = new Error(message)
+    const res = {status: jest.fn(() => res), json: jest.fn(() => res)}
+    const req = {}
+    const next = jest.fn()
+
+    errorMiddleware(error, req, res, next)
+    expect(next).not.toHaveBeenCalled()
+    expect(res.status).toHaveBeenCalledWith(500)
+    expect(res.json).toHaveBeenCalledWith({
+      message: error.message,
+      stack: error.stack,
+    })
+  })
+})
