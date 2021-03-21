@@ -5,12 +5,20 @@ import {UnauthorizedError} from 'express-jwt'
 import errorMiddleware from '../error-middleware'
 
 describe('errorMiddleware', () => {
+  function buildRes(overrides = {}) {
+    const res = {
+      json: jest.fn(() => res),
+      status: jest.fn(() => res),
+      ...overrides,
+    }
+    return res
+  }
   const message = 'Some message'
 
   // 🐨 Write a test for the UnauthorizedError case
   test('responds with 401 for jwt UnauthorizedError', () => {
     const error = new UnauthorizedError('some_error_code', {message})
-    const res = {json: jest.fn(() => res), status: jest.fn(() => res)}
+    const res = buildRes()
     const req = null
     const next = jest.fn()
 
@@ -28,11 +36,10 @@ describe('errorMiddleware', () => {
   // 🐨 Write a test for the headersSent case
   test('call next if headerSent is true', () => {
     const error = new Error(message)
-    const res = {
-      json: jest.fn(() => res),
-      status: jest.fn(() => res),
+    const res = buildRes({
       headersSent: true,
-    }
+    })
+
     const req = null
     const next = jest.fn()
 
@@ -52,7 +59,7 @@ describe('errorMiddleware', () => {
   // 🐨 Write a test for the else case (responds with a 500)
   test('Responds with 500 and the error object', () => {
     const error = new Error(message)
-    const res = {status: jest.fn(() => res), json: jest.fn(() => res)}
+    const res = buildRes()
     const req = {}
     const next = jest.fn()
 
