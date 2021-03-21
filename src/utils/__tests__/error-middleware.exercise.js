@@ -2,25 +2,18 @@
 
 // 🐨 you'll need both of these:
 import {UnauthorizedError} from 'express-jwt'
+import {buildRes, buildReq, buildNext} from 'utils/generate'
 import errorMiddleware from '../error-middleware'
 
 describe('errorMiddleware', () => {
-  function buildRes(overrides = {}) {
-    const res = {
-      json: jest.fn(() => res),
-      status: jest.fn(() => res),
-      ...overrides,
-    }
-    return res
-  }
   const message = 'Some message'
 
   // 🐨 Write a test for the UnauthorizedError case
   test('responds with 401 for jwt UnauthorizedError', () => {
     const error = new UnauthorizedError('some_error_code', {message})
     const res = buildRes()
-    const req = null
-    const next = jest.fn()
+    const req = buildReq()
+    const next = buildNext()
 
     errorMiddleware(error, req, res, next)
     expect(next).not.toHaveBeenCalled()
@@ -40,8 +33,8 @@ describe('errorMiddleware', () => {
       headersSent: true,
     })
 
-    const req = null
-    const next = jest.fn()
+    const req = buildReq()
+    const next = buildNext()
 
     errorMiddleware(error, req, res, next)
 
@@ -60,8 +53,8 @@ describe('errorMiddleware', () => {
   test('Responds with 500 and the error object', () => {
     const error = new Error(message)
     const res = buildRes()
-    const req = {}
-    const next = jest.fn()
+    const req = buildReq()
+    const next = buildNext()
 
     errorMiddleware(error, req, res, next)
     expect(next).not.toHaveBeenCalled()
