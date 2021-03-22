@@ -58,3 +58,19 @@ test('getListItem returns the req.listItem', async () => {
   //🐨 assert that res.json was called correctly
   expect(res.json).toHaveBeenCalledTimes(1)
 })
+
+test('createListItem return 400 error if if no bookId is found', async () => {
+  const res = buildRes()
+  const req = buildReq()
+  await listItemsController.createListItem(req, res)
+  expect(res.status).toHaveBeenCalledWith(400)
+  expect(res.status).toHaveBeenCalledTimes(1)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  expect(res.json.mock.calls[0]).toMatchInlineSnapshot(`
+    Array [
+      Object {
+        "message": "No bookId provided",
+      },
+    ]
+  `)
+})
