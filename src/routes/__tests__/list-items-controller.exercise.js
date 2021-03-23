@@ -5,6 +5,7 @@ import {
   buildRes,
   buildReq,
   buildListItem,
+  buildNext,
 } from 'utils/generate'
 
 // 🐨 don't forget to import the listItemsController from '../list-items-controller'
@@ -15,9 +16,14 @@ import * as listItemsController from '../list-items-controller'
 // so you'll need to import the booksDB from '../../db/books'
 import * as booksDB from '../../db/books'
 
+// 🐨 setListItem calls `listItemsDB.readById` so i need to import the listItemDB
+import * as listItemsDB from '../../db/list-items'
+
 // 🐨 use jest.mock to mock '../../db/books' because we don't actually want to make
 // database calls in this test file.
 jest.mock('../../db/books')
+
+jest.mock('../../db/list-items')
 
 beforeEach(() => {
   jest.resetAllMocks()
@@ -59,7 +65,7 @@ test('getListItem returns the req.listItem', async () => {
   expect(res.json).toHaveBeenCalledTimes(1)
 })
 
-test('createListItem return 400 error if if no bookId is found', async () => {
+test('createListItem return 400 error if no bookId is found', async () => {
   const res = buildRes()
   const req = buildReq()
   await listItemsController.createListItem(req, res)
@@ -73,4 +79,70 @@ test('createListItem return 400 error if if no bookId is found', async () => {
       },
     ]
   `)
+})
+
+describe('test business logic of setListItem', () => {
+  test('setListItem call next', async () => {
+    const user = buildUser()
+    const res = buildRes()
+    const next = buildNext()
+    const listItem = buildListItem({ownerId: user.id})
+    const req = buildReq({user, params: {id: listItem.id}})
+
+    listItemsDB.readById.mockResolvedValueOnce(listItem)
+    await listItemsController.setListItem(req, res, next)
+
+    expect(listItemsDB.readById).toHaveBeenCalledTimes(1)
+    expect(listItemsDB.readById).toHaveBeenCalledWith(listItem.id)
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(next).toHaveBeenCalledWith(/* nothing */)
+  })
+
+  test('setListItem return 404 if no list item is found', async () => {
+    const req = buildReq({params: {id: 1}})
+    const res = buildRes()
+    const next = buildNext()
+
+    await listItemsController.setListItem(req, res, next)
+
+    expect(res.status).toHaveBeenCalledWith(404)
+    expect(res.status).toHaveBeenCalledTimes(1)
+    expect(res.json).toHaveBeenCalledTimes(1)
+    expect(res.json.mock.calls[0]).toMatchInlineSnapshot(`
+          Array [
+            Object {
+              "message": "No list item was found with the id of 1",
+            },
+          ]
+      `)
+    expect(next).not.toHaveBeenCalled()
+  })
+
+  test('setListItem return 403 if the user is not the owner of the list item', async () => {
+    const res = buildRes()
+    const next = buildNext()
+    const user = buildUser({id: 'FAKE_USER_ID'})
+    const fakeListItemID = 'FAKE_LIST_ITEM_ID'
+    const req = buildReq({params: {id: fakeListItemID}, user})
+
+    const listItem = buildListItem({
+      ownerId: 'fakeOwnerId',
+      id: 'fakeListItemId',
+    })
+
+    listItemsDB.readById.mockResolvedValueOnce(listItem)
+
+    await listItemsController.setListItem(req, res, next)
+
+    expect(listItemsDB.readById).toHaveBeenCalledWith(fakeListItemID)
+    expect(res.status).toHaveBeenCalledWith(403)
+    expect(res.status).toHaveBeenCalledTimes(1)
+    expect(res.json.mock.calls[0]).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "message": "User with id FAKE_USER_ID is not authorized to access the list item FAKE_LIST_ITEM_ID",
+        },
+      ]
+    `)
+  })
 })
