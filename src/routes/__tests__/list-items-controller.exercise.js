@@ -146,3 +146,92 @@ describe('test business logic of setListItem', () => {
     `)
   })
 })
+
+describe('getListItem business logic', () => {
+  test('return a user listItems', async () => {
+    const res = buildRes()
+    const user = buildUser()
+    const req = buildReq({user})
+    const books = [buildBook(), buildBook()]
+    const userListItems = [
+      buildListItem({bookId: books[0].id, ownerId: user.id}),
+      buildListItem({bookId: books[1].id, ownerId: user.id}),
+    ]
+
+    listItemsDB.query.mockResolvedValueOnce(userListItems)
+    booksDB.readManyById.mockResolvedValueOnce(books)
+
+    await listItemsController.getListItems(req, res)
+
+    expect(listItemsDB.query).toHaveBeenCalledWith({ownerId: user.id})
+
+    expect(booksDB.readManyById).toHaveBeenCalledWith([
+      books[0].id,
+      books[1].id,
+    ])
+
+    expect(res.json).toHaveBeenCalledWith({
+      listItems: [
+        {...userListItems[0], book: {...books[0]}},
+        {...userListItems[1], book: {...books[1]}},
+      ],
+    })
+
+    expect(listItemsDB.query).toHaveBeenCalledTimes(1)
+    expect(booksDB.readManyById).toHaveBeenCalledTimes(1)
+    expect(res.json).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('createListItem business logic', () => {
+  test('return 400 if no book Id is provided', async () => {
+    const req = buildReq()
+    const res = buildRes()
+    await listItemsController.createListItem(req, res)
+    expect(res.status).toHaveBeenCalledWith(400)
+    expect(res.json).toHaveBeenCalledWith({message: `No bookId provided`})
+  })
+
+  test('return 400 if list item already exist', async () => {
+    const user = buildUser({id: 'FAKE_OWNER_ID'})
+    const req = buildReq({user, body: {bookId: 'FAKE_BOOK_ID'}})
+    const res = buildRes()
+    listItemsDB.query.mockResolvedValueOnce(['FAKE_EXISTING_LIST_ITEM'])
+    await listItemsController.createListItem(req, res)
+    expect(listItemsDB.query).toHaveBeenCalledWith({
+      ownerId: 'FAKE_OWNER_ID',
+      bookId: 'FAKE_BOOK_ID',
+    })
+    expect(res.status).toHaveBeenCalledWith(400)
+    expect(res.json.mock.calls[0]).toMatchInlineSnapshot(`
+      Array [
+        Object {
+          "message": "User FAKE_OWNER_ID already has a list item for the book with the ID FAKE_BOOK_ID",
+        },
+      ]
+    `)
+  })
+
+  test('create a new list item', async () => {
+    const book = buildBook()
+    const user = buildUser()
+    const req = buildReq({user, body: {bookId: book.id}})
+    const res = buildRes()
+
+    listItemsDB.query.mockResolvedValueOnce([])
+
+    const listItem = buildListItem()
+    listItemsDB.create.mockResolvedValueOnce(listItem)
+
+    booksDB.readById.mockResolvedValueOnce(book)
+
+    await listItemsController.createListItem(req, res)
+
+    expect(listItemsDB.query).toHaveBeenCalledWith({
+      ownerId: user.id,
+      bookId: book.id,
+    })
+
+    expect(res.json).toHaveBeenCalledWith({listItem: {...listItem, book}})
+  })
+})
